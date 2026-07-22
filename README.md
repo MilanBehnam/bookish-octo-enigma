@@ -1,4 +1,5 @@
 # Planning Poker
+[![GitHub Repo](https://img.shields.io/badge/GitHub-bookish--octo--enigma-181717?logo=github)](https://github.com/MilanBehnam/bookish-octo-enigma)
 
 Simple planning poker app for internal team use.
 

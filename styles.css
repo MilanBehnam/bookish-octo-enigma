@@ -24,6 +24,20 @@ body {
   color: var(--text);
 }
 
+.github-badge {
+  position: fixed;
+  top: 14px;
+  right: 14px;
+  z-index: 1200;
+  background: #111827;
+  color: #fff;
+  text-decoration: none;
+  font-weight: 700;
+  font-size: 0.8rem;
+  padding: 8px 12px;
+  border-radius: 999px;
+}
+
 button,
 input {
   font: inherit;
