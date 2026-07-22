@@ -1,0 +1,118 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Planning Poker</title>
+    <link rel="stylesheet" href="styles.css" />
+    <script src="https://unpkg.com/peerjs@1.5.4/dist/peerjs.min.js"></script>
+    <script defer src="app.js"></script>
+  </head>
+  <body>
+    <main class="app-shell">
+      <section class="hero">
+        <div class="suits-logo" aria-label="Card suits logo">
+          <span class="suit-card spade">♠</span>
+          <span class="suit-card heart">♥</span>
+          <span class="suit-card diamond">♦</span>
+          <span class="suit-card club">♣</span>
+        </div>
+        <div id="connection-status" class="status-pill">Connecting...</div>
+      </section>
+
+      <section id="setup-panel" class="card">
+        <div id="setup-choice" class="setup-choice">
+          <button id="start-create-button" class="primary-button">Create session</button>
+          <button id="start-join-button" class="secondary-button">Join session</button>
+        </div>
+        <form id="create-form" class="stack setup-form hidden">
+          <label>
+            Your name
+            <input id="create-name" name="name" type="text" maxlength="40" required />
+          </label>
+          <button type="submit" class="primary-button">Create session as host</button>
+        </form>
+        <form id="join-form" class="stack setup-form hidden">
+          <label>
+            Your name
+            <input id="join-name" name="name" type="text" maxlength="40" required />
+          </label>
+          <label id="join-session-code-row">
+            Session code
+            <input id="join-session-code" name="sessionCode" type="text" required />
+          </label>
+          <button type="submit" class="secondary-button">Join session</button>
+        </form>
+      </section>
+
+      <section id="session-panel" class="card hidden">
+        <div class="session-header">
+          <div>
+            <h2>Planning poker game</h2>
+            <p class="session-meta">
+              Session code: <strong id="session-code">-</strong>
+            </p>
+            <p class="session-meta">
+              <button type="button" id="share-button" class="secondary-button">Share invite</button>
+              <span id="share-feedback" class="share-feedback"></span>
+            </p>
+          </div>
+        </div>
+
+        <div id="host-controls" class="host-controls hidden">
+          <button type="button" id="settings-button" class="ghost-button">⚙</button>
+          <button type="button" id="reveal-button" class="secondary-button">Reveal votes</button>
+          <button type="button" id="reset-button" class="ghost-button">Reset round</button>
+        </div>
+
+        <div id="settings-modal" class="modal hidden" role="dialog" aria-modal="true" aria-labelledby="settings-modal-title">
+          <div id="settings-overlay" class="modal-overlay"></div>
+          <section class="feature-settings modal-content">
+            <div class="modal-header">
+              <h3 id="settings-modal-title">Game settings</h3>
+              <button type="button" id="close-settings-button" class="ghost-button">✕</button>
+            </div>
+            <label class="setting-row">
+              <span class="setting-text">
+                <strong>Auto-reveal cards</strong>
+                <small>Reveal automatically after everyone voted.</small>
+              </span>
+              <input id="auto-reveal-toggle" type="checkbox" class="switch-input" />
+            </label>
+            <label class="setting-row">
+              <span class="setting-text">
+                <strong>Enable fun features</strong>
+                <small>Play a small celebration when cards are revealed.</small>
+              </span>
+              <input id="fun-toggle" type="checkbox" class="switch-input" />
+            </label>
+            <label class="setting-row">
+              <span class="setting-text">
+                <strong>Show average in the results</strong>
+                <small>Include average and nearest Fibonacci after reveal.</small>
+              </span>
+              <input id="average-toggle" type="checkbox" class="switch-input" />
+            </label>
+            <label class="setting-row">
+              <span class="setting-text">
+                <strong>Show countdown animation</strong>
+                <small>Wait 3 seconds before revealing votes.</small>
+              </span>
+              <input id="countdown-toggle" type="checkbox" class="switch-input" />
+            </label>
+          </section>
+        </div>
+
+        <section class="board-center">
+          <p id="round-status" class="round-status">Pick your cards</p>
+          <div id="results-summary" class="results-summary hidden"></div>
+          <div id="participants" class="participants"></div>
+        </section>
+
+        <div class="card-bar">
+          <div id="cards" class="cards" aria-label="Fibonacci cards"></div>
+        </div>
+      </section>
+    </main>
+  </body>
+</html>
