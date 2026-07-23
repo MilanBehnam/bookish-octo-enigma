@@ -12,23 +12,20 @@ Simple planning poker app for internal team use.
 - Optional settings: auto-reveal, fun reveal effect, average in results, and reveal countdown
 - Revealed results show majority Fibonacci vote and team agreement percentage
 
-## Hosting on GitHub Pages
+## Hosting on Render
 
-This project is frontend-only and can be hosted on GitHub Pages because it does not run a custom backend.
-
-The app uses PeerJS/WebRTC for browser-to-browser communication, so the host browser coordinates the session state.
+The app uses a Node.js relay server and Socket.IO, so it needs a host that supports a long-running web service and WebSockets. A free Render Web Service can deploy this repository using the included `render.yaml` Blueprint.
 
 ### Deploy steps
 
-1. Create a GitHub repository and push this project to branch `main`.
-2. In GitHub, open **Settings → Pages**.
-3. Under **Build and deployment**, set **Source** to **GitHub Actions**.
-4. Push to `main` (or run the workflow manually from **Actions**).
-5. Your app will be available at:
-   `https://<your-username>.github.io/<your-repo>/`
+1. Open [Render](https://render.com/) and sign in with GitHub.
+2. Select **New -> Blueprint** and choose this repository.
+3. Apply the `planning-poker` service from `render.yaml`.
+4. Open the generated `onrender.com` URL.
 
-The workflow file is already included at:
-`.github/workflows/deploy-pages.yml`
+The free service may sleep after inactivity, and in-memory sessions are lost when the service restarts.
+
+The repository is configured to install packages from the Rabobank Nexus npm registry. Render must be able to reach that registry; configure any required registry credentials as Render secrets rather than committing them.
 
 ## How to use
 
@@ -44,5 +41,4 @@ The workflow file is already included at:
 ## Notes
 
 - The session works while the host browser tab stays open.
-- This version depends on PeerJS public infrastructure for connection setup.
-- Because this is a static app, there is no persistent server-side storage.
+- Sessions are held in memory and are lost when the server restarts.

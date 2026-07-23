@@ -34,19 +34,14 @@ const elements = {
 };
 
 const state = {
-  peer: null,
+  socket: null,
   mode: null,
   selfId: null,
-  hostId: null,
-  hostConnection: null,
   countdownInterval: null,
-  revealTimeout: null,
-  connections: new Map(),
   currentName: localStorage.getItem("planning-poker-name") || "",
   selectedVote: null,
   inviteContext: {
     sessionCode: "",
-    hostId: "",
   },
   session: {
     sessionCode: "",
@@ -77,10 +72,6 @@ function normalizeCode(value) {
   return value.trim().replace(/\s+/g, "-").toLowerCase();
 }
 
-function generateSessionCode() {
-  return Math.random().toString(36).slice(2, 8);
-}
-
 function setStatus(text, isError = false) {
   elements.connectionStatus.textContent = text;
   elements.connectionStatus.style.background = isError ? "#fde8e8" : "";
@@ -88,21 +79,12 @@ function setStatus(text, isError = false) {
 }
 
 function escapeHtml(value) {
-  return value
+  return String(value)
     .replaceAll("&", "&amp;")
     .replaceAll("<", "&lt;")
     .replaceAll(">", "&gt;")
     .replaceAll('"', "&quot;")
     .replaceAll("'", "&#39;");
-}
-
-function createParticipantRecord(id, name, isHost = false) {
-  return {
-    id,
-    name: name || (isHost ? "Host" : "Anonymous"),
-    isHost,
-    vote: null,
-  };
 }
 
 function getParticipantList() {
@@ -121,11 +103,14 @@ function getParticipantList() {
 
 function updateUrl(sessionCode = "", hostId = "") {
   const url = new URL(window.location.href);
-  if (sessionCode && hostId) {
+  if (sessionCode) {
     url.searchParams.set("session", sessionCode);
-    url.searchParams.set("host", hostId);
   } else {
     url.searchParams.delete("session");
+  }
+  if (hostId) {
+    url.searchParams.set("host", hostId);
+  } else {
     url.searchParams.delete("host");
   }
   window.history.replaceState({}, "", url);
@@ -134,7 +119,9 @@ function updateUrl(sessionCode = "", hostId = "") {
 function buildShareLink() {
   const url = new URL(window.location.href);
   url.searchParams.set("session", state.session.sessionCode);
-  url.searchParams.set("host", state.session.hostId);
+  if (state.session.hostId) {
+    url.searchParams.set("host", state.session.hostId);
+  }
   return url.toString();
 }
 
@@ -220,33 +207,6 @@ function showJoinSetup(inviteMode = false) {
   elements.joinName.focus();
 }
 
-function broadcast(message) {
-  if (state.mode !== "host") {
-    return;
-  }
-
-  state.connections.forEach((connection) => {
-    if (connection.open) {
-      connection.send(message);
-    }
-  });
-}
-
-function sendSessionSnapshot(targetConnection = null) {
-  const snapshot = {
-    type: "session-state",
-    payload: state.session,
-    selfId: targetConnection ? targetConnection.peer : state.selfId,
-  };
-
-  if (targetConnection) {
-    targetConnection.send(snapshot);
-    return;
-  }
-
-  broadcast(snapshot);
-}
-
 function normalizeSession(session) {
   return {
     ...session,
@@ -290,9 +250,7 @@ function getVoteResults() {
   let averageData = null;
   if (numericVotes.length) {
     const average = numericVotes.reduce((sum, vote) => sum + vote, 0) / numericVotes.length;
-    const numericFibonacciValues = fibonacciValues
-      .map((value) => Number(value))
-      .filter((value) => Number.isFinite(value));
+    const numericFibonacciValues = fibonacciValues.map((value) => Number(value)).filter((value) => Number.isFinite(value));
     const nearestFibonacci = numericFibonacciValues.reduce((closest, value) => {
       if (Math.abs(value - average) < Math.abs(closest - average)) {
         return value;
@@ -314,22 +272,13 @@ function getVoteResults() {
   };
 }
 
-function clearRevealTimeout() {
-  if (state.revealTimeout) {
-    window.clearTimeout(state.revealTimeout);
-    state.revealTimeout = null;
-  }
-}
-
 function startCountdownTicker() {
   if (state.countdownInterval) {
     return;
   }
-
   state.countdownInterval = window.setInterval(() => {
-    if (!state.session.countdownEndsAt) {
-      window.clearInterval(state.countdownInterval);
-      state.countdownInterval = null;
+    if (!state.session.countdownEndsAt || state.session.revealed) {
+      stopCountdownTicker();
       return;
     }
     renderSession();
@@ -348,7 +297,6 @@ function playFunReveal() {
   if (!state.session.settings.enableFun) {
     return;
   }
-
   const burst = document.createElement("div");
   burst.className = "fun-burst";
   burst.textContent = "🎉 🎉 🎉";
@@ -356,51 +304,6 @@ function playFunReveal() {
   window.setTimeout(() => {
     burst.remove();
   }, 900);
-}
-
-function finalizeReveal() {
-  state.session.revealed = true;
-  state.session.countdownEndsAt = null;
-  clearRevealTimeout();
-  stopCountdownTicker();
-  sendSessionSnapshot();
-  renderSession();
-  playFunReveal();
-}
-
-function revealVotes() {
-  if (state.mode !== "host" || state.session.revealed) {
-    return;
-  }
-
-  if (state.session.settings.countdown) {
-    if (state.session.countdownEndsAt) {
-      return;
-    }
-    state.session.countdownEndsAt = Date.now() + 3000;
-    sendSessionSnapshot();
-    renderSession();
-    state.revealTimeout = window.setTimeout(() => {
-      finalizeReveal();
-    }, 3000);
-    return;
-  }
-
-  finalizeReveal();
-}
-
-function maybeAutoReveal() {
-  if (state.mode !== "host" || state.session.revealed || !state.session.settings.autoReveal) {
-    return;
-  }
-  const participants = Object.values(state.session.participants);
-  if (!participants.length) {
-    return;
-  }
-  const everyoneVoted = participants.every((participant) => participant.vote !== null);
-  if (everyoneVoted) {
-    revealVotes();
-  }
 }
 
 function renderCards() {
@@ -428,13 +331,10 @@ function renderParticipants() {
   elements.participants.innerHTML = participants
     .map((participant) => {
       const voteDisplay = state.session.revealed ? participant.vote ?? "-" : "?";
-
       const voteClass = state.session.revealed ? "revealed" : "pending";
       const badge = participant.isHost ? '<span class="participant-badge">Host</span>' : "";
       const editButton =
-        participant.id === state.selfId
-          ? '<button type="button" class="edit-name-button" aria-label="Edit your name">✎</button>'
-          : "";
+        participant.id === state.selfId ? '<button type="button" class="edit-name-button" aria-label="Edit your name">✎</button>' : "";
 
       return `
         <article class="participant">
@@ -504,193 +404,96 @@ function renderSession() {
   renderParticipants();
 }
 
+function emitToServer(event, payload) {
+  if (!state.socket?.connected) {
+    window.alert("Realtime connection is unavailable.");
+    return false;
+  }
+  state.socket.emit(event, payload);
+  return true;
+}
+
+function createHostSession(hostName) {
+  state.mode = "host";
+  const sent = emitToServer("create-session", { name: hostName });
+  if (sent) {
+    setStatus("Creating session...");
+  }
+}
+
+function joinSession(name, sessionCode) {
+  state.mode = "participant";
+  const sent = emitToServer("join-session", { name, sessionCode });
+  if (sent) {
+    setStatus("Joining session...");
+  }
+}
+
 function submitVote(value) {
   if (!state.session.sessionCode) {
     window.alert("Join or create a session first.");
     return;
   }
-
   state.selectedVote = value;
-
-  if (state.mode === "host") {
-    state.session.participants[state.selfId].vote = value;
-    maybeAutoReveal();
-    sendSessionSnapshot();
-    renderSession();
-    return;
-  }
-
-  if (!state.hostConnection?.open) {
-    window.alert("Connection to host is unavailable.");
-    return;
-  }
-
-  state.hostConnection.send({
-    type: "vote",
-    payload: {
-      vote: value,
-      name: state.currentName,
-    },
+  emitToServer("vote", {
+    vote: value,
+    name: state.currentName,
   });
   renderCards();
 }
 
 function updateParticipantName(name) {
-  if (state.mode === "host") {
-    state.session.participants[state.selfId].name = name;
-    sendSessionSnapshot();
-    renderSession();
+  emitToServer("rename", { name });
+}
+
+function revealVotes() {
+  if (state.mode !== "host" || state.session.revealed) {
     return;
   }
+  emitToServer("reveal-votes");
+}
 
-  if (state.hostConnection?.open) {
-    state.hostConnection.send({
-      type: "rename",
-      payload: { name },
-    });
+function resetRound() {
+  if (state.mode !== "host") {
+    return;
   }
+  state.selectedVote = null;
+  emitToServer("reset-round");
 }
 
 function applySnapshot(snapshot) {
   const previousReveal = state.session.revealed;
   state.session = normalizeSession(snapshot);
+  const selfParticipant = state.session.participants[state.selfId];
+  if (selfParticipant?.isHost) {
+    state.mode = "host";
+  } else if (state.session.sessionCode) {
+    state.mode = "participant";
+  }
+  state.selectedVote = selfParticipant ? selfParticipant.vote : null;
+  updateUrl(state.session.sessionCode, state.session.hostId);
   if (state.session.revealed && !previousReveal) {
     playFunReveal();
   }
-
-  const selfParticipant = state.session.participants[state.selfId];
-  state.selectedVote = selfParticipant ? selfParticipant.vote : null;
   renderSession();
 }
 
-function resetRound() {
-  state.session.revealed = false;
-  state.session.countdownEndsAt = null;
-  Object.values(state.session.participants).forEach((participant) => {
-    participant.vote = null;
-  });
-  clearRevealTimeout();
-  stopCountdownTicker();
+function handleSessionEnded() {
+  state.mode = null;
   state.selectedVote = null;
-  sendSessionSnapshot();
-  renderSession();
-}
-
-function handleHostMessage(connection, message) {
-  if (!message || typeof message !== "object") {
-    return;
-  }
-
-  if (message.type === "join") {
-    const participantId = connection.peer;
-    const participantName = (message.payload?.name || "").trim();
-    state.session.participants[participantId] = createParticipantRecord(participantId, participantName);
-    sendSessionSnapshot(connection);
-    sendSessionSnapshot();
-    renderSession();
-    return;
-  }
-
-  if (message.type === "vote") {
-    const participant = state.session.participants[connection.peer];
-    if (!participant) {
-      return;
-    }
-
-    participant.vote = message.payload?.vote ?? null;
-    if (message.payload?.name) {
-      participant.name = message.payload.name.trim() || participant.name;
-    }
-    maybeAutoReveal();
-    sendSessionSnapshot();
-    renderSession();
-    return;
-  }
-
-  if (message.type === "rename") {
-    const participant = state.session.participants[connection.peer];
-    if (!participant) {
-      return;
-    }
-
-    participant.name = (message.payload?.name || "").trim() || participant.name;
-    sendSessionSnapshot();
-    renderSession();
-  }
-}
-
-function setupHostConnection(connection) {
-  connection.on("open", () => {
-    state.connections.set(connection.peer, connection);
-    setStatus("Session live");
-  });
-
-  connection.on("data", (message) => handleHostMessage(connection, message));
-
-  connection.on("close", () => {
-    state.connections.delete(connection.peer);
-    delete state.session.participants[connection.peer];
-    sendSessionSnapshot();
-    renderSession();
-  });
-
-  connection.on("error", () => {
-    state.connections.delete(connection.peer);
-    delete state.session.participants[connection.peer];
-    sendSessionSnapshot();
-    renderSession();
-  });
-}
-
-function createHostSession(hostName) {
-  const existingName = hostName || state.currentName || "Host";
-  state.mode = "host";
-  state.session.sessionCode = generateSessionCode();
-  state.session.hostId = state.selfId;
-  state.session.hostName = existingName;
-  state.session.revealed = false;
-  state.session.countdownEndsAt = null;
-  state.session.settings = getDefaultSettings();
-  state.session.participants = {
-    [state.selfId]: createParticipantRecord(state.selfId, existingName, true),
+  state.session = {
+    sessionCode: "",
+    hostId: "",
+    hostName: "Host",
+    revealed: false,
+    countdownEndsAt: null,
+    settings: getDefaultSettings(),
+    participants: {},
   };
-  state.selectedVote = null;
-  updateUrl(state.session.sessionCode, state.session.hostId);
+  updateUrl();
   renderSession();
-  setStatus("Session created");
-}
-
-function joinSession(name, sessionCode, hostId) {
-  state.mode = "participant";
-  state.hostId = hostId;
-  state.session.sessionCode = sessionCode;
-  state.session.hostId = hostId;
-  state.selectedVote = null;
-  updateUrl(sessionCode, hostId);
-  const connection = state.peer.connect(hostId, { reliable: true });
-  state.hostConnection = connection;
-
-  connection.on("open", () => {
-    setStatus("Joined session");
-    connection.send({
-      type: "join",
-      payload: { name },
-    });
-  });
-
-  connection.on("data", (message) => {
-    if (message?.type === "session-state") {
-      applySnapshot(message.payload);
-    }
-  });
-
-  connection.on("close", () => {
-    setStatus("Disconnected from host", true);
-  });
-
-  connection.on("error", () => {
-    setStatus("Unable to connect to host", true);
-  });
+  showSetupChoice();
+  window.alert("Session ended because host disconnected.");
 }
 
 function wireEvents() {
@@ -720,15 +523,14 @@ function wireEvents() {
     event.preventDefault();
     const name = elements.joinName.value.trim();
     const sessionCode = state.inviteContext.sessionCode || normalizeCode(elements.joinSessionCode.value);
-    const hostId = state.inviteContext.hostId || new URL(window.location.href).searchParams.get("host") || "";
 
-    if (!name || !sessionCode || !hostId) {
-      window.alert("Open the session link from the host or provide a valid session code link.");
+    if (!name || !sessionCode) {
+      window.alert("Open the session link from the host or provide a valid session code.");
       return;
     }
 
     setCurrentName(name);
-    joinSession(name, sessionCode, hostId);
+    joinSession(name, sessionCode);
   });
 
   elements.shareButton.addEventListener("click", async () => {
@@ -788,18 +590,12 @@ function wireEvents() {
       return;
     }
     state.session.settings[key] = checked;
-    if (!checked && key === "countdown") {
-      state.session.countdownEndsAt = null;
-      clearRevealTimeout();
-      stopCountdownTicker();
-    }
-    sendSessionSnapshot();
+    emitToServer("update-settings", state.session.settings);
     renderSession();
   };
 
   elements.autoRevealToggle.addEventListener("change", (event) => {
     handleSettingChange("autoReveal", event.target.checked);
-    maybeAutoReveal();
   });
 
   elements.funToggle.addEventListener("change", (event) => {
@@ -815,66 +611,68 @@ function wireEvents() {
   });
 
   elements.revealButton.addEventListener("click", () => {
-    if (state.mode !== "host") {
-      return;
-    }
-
     revealVotes();
   });
 
   elements.resetButton.addEventListener("click", () => {
-    if (state.mode !== "host") {
-      return;
-    }
-
     resetRound();
   });
 }
 
-function initializePeer() {
-  state.peer = new Peer();
+function initializeSocket() {
+  state.socket = io();
 
-  state.peer.on("open", (id) => {
-    state.selfId = id;
+  state.socket.on("connect", () => {
+    state.selfId = state.socket.id;
     setStatus("Ready");
     const url = new URL(window.location.href);
     const sessionCode = normalizeCode(url.searchParams.get("session") || "");
-    const hostId = url.searchParams.get("host") || "";
     state.inviteContext.sessionCode = sessionCode;
-    state.inviteContext.hostId = hostId;
 
-    if (sessionCode) {
+    if (sessionCode && !state.session.sessionCode) {
       elements.joinSessionCode.value = sessionCode;
-    }
-
-    if (hostId && sessionCode) {
       showJoinSetup(true);
-    } else {
+    } else if (!state.session.sessionCode) {
       showSetupChoice();
     }
   });
 
-  state.peer.on("connection", (connection) => {
-    if (state.mode !== "host") {
-      connection.close();
-      return;
-    }
-
-    setupHostConnection(connection);
+  state.socket.on("disconnect", () => {
+    setStatus("Connection lost, reconnecting...", true);
   });
 
-  state.peer.on("disconnected", () => {
-    setStatus("Connection lost, retrying...", true);
-    state.peer.reconnect();
-  });
-
-  state.peer.on("error", (error) => {
-    console.error(error);
+  state.socket.on("connect_error", () => {
     setStatus("Realtime connection error", true);
+  });
+
+  state.socket.on("session-created", ({ sessionCode }) => {
+    setStatus("Session created");
+    if (sessionCode) {
+      state.inviteContext.sessionCode = sessionCode;
+    }
+  });
+
+  state.socket.on("joined-session", () => {
+    setStatus("Joined session");
+  });
+
+  state.socket.on("join-error", ({ message }) => {
+    setStatus("Unable to join session", true);
+    window.alert(message || "Unable to join session.");
+    showJoinSetup(false);
+  });
+
+  state.socket.on("session-state", (snapshot) => {
+    applySnapshot(snapshot);
+  });
+
+  state.socket.on("session-ended", () => {
+    setStatus("Session ended", true);
+    handleSessionEnded();
   });
 }
 
 wireEvents();
 renderCards();
 renderParticipants();
-initializePeer();
+initializeSocket();
