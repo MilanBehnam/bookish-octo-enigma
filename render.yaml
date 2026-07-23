@@ -3,6 +3,6 @@ services:
     name: planning-poker
     runtime: node
     plan: free
-    buildCommand: npm install --omit=dev --no-audit --no-fund && node -e "require.resolve('express'); require.resolve('socket.io')"
-    startCommand: npm start
+    buildCommand: tar -xzf node_modules.tgz && node -e "require.resolve('express'); require.resolve('socket.io')"
+    startCommand: node server.js
     healthCheckPath: /health
