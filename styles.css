@@ -463,6 +463,12 @@ button:disabled {
   color: var(--primary-strong);
 }
 
+.participant-vote-box.pending.voted {
+  border-color: var(--accent);
+  background: #e8f8f0;
+  color: var(--accent);
+}
+
 .participant-vote-box.revealed {
   color: var(--accent);
 }

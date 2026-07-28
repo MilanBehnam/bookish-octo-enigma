@@ -331,7 +331,11 @@ function renderParticipants() {
   elements.participants.innerHTML = participants
     .map((participant) => {
       const voteDisplay = state.session.revealed ? participant.vote ?? "-" : "?";
-      const voteClass = state.session.revealed ? "revealed" : "pending";
+      const voteClass = state.session.revealed
+        ? "revealed"
+        : participant.vote !== null
+          ? "pending voted"
+          : "pending";
       const badge = participant.isHost ? '<span class="participant-badge">Host</span>' : "";
       const editButton =
         participant.id === state.selfId ? '<button type="button" class="edit-name-button" aria-label="Edit your name">✎</button>' : "";
