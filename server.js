@@ -12,7 +12,7 @@ const io = new Server(server, {
 });
 
 const port = Number(process.env.PORT || 3000);
-const fibonacciValues = new Set(["0", "1", "2", "3", "5", "8", "13", "21", "?"]);
+const fibonacciValues = new Set(["0", "1", "2", "3", "5", "8", "13", "21", "?", "☕"]);
 const sessions = new Map();
 
 function roomForSession(sessionCode) {

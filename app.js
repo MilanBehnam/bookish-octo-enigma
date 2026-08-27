@@ -1,4 +1,4 @@
-const fibonacciValues = ["0", "1", "2", "3", "5", "8", "13", "21", "?"];
+const fibonacciValues = ["0", "1", "2", "3", "5", "8", "13", "21", "?", "☕"];
 
 const elements = {
   connectionStatus: document.getElementById("connection-status"),
@@ -312,8 +312,9 @@ function renderCards() {
   fibonacciValues.forEach((value) => {
     const button = document.createElement("button");
     button.type = "button";
-    button.className = `vote-card${state.selectedVote === value ? " selected" : ""}`;
+    button.className = `vote-card${value === "☕" ? " coffee-card" : ""}${state.selectedVote === value ? " selected" : ""}`;
     button.textContent = value;
+    button.setAttribute("aria-label", value === "☕" ? "Coffee" : `Vote ${value}`);
     button.disabled = !state.session.sessionCode;
     button.addEventListener("click", () => submitVote(value));
     elements.cards.appendChild(button);

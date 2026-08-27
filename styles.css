@@ -396,6 +396,18 @@ button:disabled {
   color: var(--primary-strong);
 }
 
+.vote-card.coffee-card {
+  border-color: #d49a6a;
+  background: #fff7ed;
+  color: #8a4b24;
+}
+
+.vote-card.coffee-card.selected {
+  border-color: #a85d2d;
+  background: #ffead5;
+  color: #713b1d;
+}
+
 .participants {
   width: min(760px, 100%);
   flex-wrap: wrap;
