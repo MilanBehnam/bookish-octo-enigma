@@ -11,6 +11,8 @@ Simple planning poker app for internal team use.
 - Host reveals votes and can reset for the next round
 - Optional settings: auto-reveal, fun reveal effect, average in results, and reveal countdown
 - Revealed results show majority Fibonacci vote and team agreement percentage
+- Host-led PRA applicability assessment based on change scope and quality attributes
+- PRA outcomes can generate a downloadable OneClick starter record; non-required quality-attribute outcomes require a rationale
 
 ## Hosting on Render
 

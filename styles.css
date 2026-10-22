@@ -239,6 +239,94 @@ p {
   gap: 10px;
 }
 
+.pra-assessment {
+  border: 1px solid var(--card-border);
+  border-radius: 18px;
+  padding: 24px;
+}
+
+.pra-assessment h4 {
+  margin: 20px 0 10px;
+  font-size: 1.2rem;
+}
+
+.pra-progress,
+.pra-actions {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  flex-wrap: wrap;
+}
+
+.pra-progress {
+  justify-content: space-between;
+  color: var(--muted);
+  font-size: 0.88rem;
+  font-weight: 700;
+}
+
+.pra-progress span:first-child,
+.pra-outcome-label {
+  color: var(--primary-strong);
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+}
+
+.pra-question {
+  max-width: 62ch;
+  font-size: 1.05rem;
+  line-height: 1.55;
+}
+
+.pra-actions {
+  margin-top: 24px;
+}
+
+.pra-rationale-label {
+  margin-top: 20px;
+}
+
+textarea {
+  width: 100%;
+  resize: vertical;
+  padding: 12px 14px;
+  border: 1px solid var(--card-border);
+  border-radius: 12px;
+  color: var(--text);
+  font: inherit;
+}
+
+textarea:focus {
+  outline: 2px solid rgba(51, 92, 255, 0.18);
+  border-color: var(--primary);
+}
+
+.pra-outcome {
+  margin-top: 18px;
+  padding: 18px;
+  border: 1px solid;
+  border-radius: 14px;
+}
+
+.pra-outcome h4 {
+  margin: 8px 0;
+}
+
+.pra-outcome p {
+  margin: 0;
+  line-height: 1.5;
+}
+
+.pra-required {
+  border-color: #e5b858;
+  background: #fff9e8;
+}
+
+.pra-not-required {
+  border-color: #88c6a5;
+  background: #edf9f1;
+}
+
 .feature-settings h3 {
   margin: 0 0 4px;
 }
@@ -553,5 +641,9 @@ a {
   .app-shell {
     width: min(100% - 24px, 1100px);
     padding-top: 24px;
+  }
+
+  .pra-actions > button {
+    width: 100%;
   }
 }

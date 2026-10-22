@@ -17,6 +17,11 @@ const elements = {
   shareButton: document.getElementById("share-button"),
   shareFeedback: document.getElementById("share-feedback"),
   hostControls: document.getElementById("host-controls"),
+  praButton: document.getElementById("pra-button"),
+  praModal: document.getElementById("pra-modal"),
+  praOverlay: document.getElementById("pra-overlay"),
+  closePraButton: document.getElementById("close-pra-button"),
+  praContent: document.getElementById("pra-content"),
   settingsButton: document.getElementById("settings-button"),
   settingsModal: document.getElementById("settings-modal"),
   settingsOverlay: document.getElementById("settings-overlay"),
@@ -33,6 +38,69 @@ const elements = {
   participants: document.getElementById("participants"),
 };
 
+const praQuestions = [
+  {
+    id: "q1",
+    label: "Q1",
+    title: "Change to a monitored component",
+    prompt: "Is the PBI or Feature related to a change that will be executed or deployed to an application, system or monitored component?",
+  },
+  {
+    id: "q2",
+    label: "Q2",
+    title: "Code-based change",
+    prompt: "Does the change involve developing or maintaining a code-based component?",
+  },
+  {
+    id: "q3a",
+    label: "Q3A",
+    title: "Functional suitability / correctness",
+    prompt: "Could the change affect what the system does or the correctness of the result?",
+  },
+  {
+    id: "q3b",
+    label: "Q3B",
+    title: "Reliability / availability",
+    prompt: "Could the change affect system stability, continuity or recovery?",
+  },
+  {
+    id: "q3c",
+    label: "Q3C",
+    title: "Performance / capacity",
+    prompt: "Could the change affect response time, throughput or resource usage?",
+  },
+  {
+    id: "q3d",
+    label: "Q3D",
+    title: "Security",
+    prompt: "Could the change affect confidentiality, integrity or access control?",
+  },
+  {
+    id: "q3e",
+    label: "Q3E",
+    title: "Compatibility / integration",
+    prompt: "Could the change affect interfaces, data formats or integration with other systems?",
+  },
+  {
+    id: "q3f",
+    label: "Q3F",
+    title: "Usability / accessibility",
+    prompt: "Could the change affect the user experience or accessibility?",
+  },
+  {
+    id: "q3g",
+    label: "Q3G",
+    title: "Maintainability / supportability",
+    prompt: "Could the change affect ease of maintenance, monitoring or support?",
+  },
+  {
+    id: "q3h",
+    label: "Q3H",
+    title: "Other relevant Quality Attribute",
+    prompt: "Could the change affect another relevant quality attribute?",
+  },
+];
+
 const state = {
   socket: null,
   mode: null,
@@ -40,6 +108,11 @@ const state = {
   countdownInterval: null,
   currentName: localStorage.getItem("planning-poker-name") || "",
   selectedVote: null,
+  pra: {
+    step: 0,
+    answers: [],
+    result: null,
+  },
   inviteContext: {
     sessionCode: "",
   },
@@ -183,6 +256,115 @@ function openSettingsModal() {
 
 function closeSettingsModal() {
   elements.settingsModal.classList.add("hidden");
+}
+
+function openPraModal() {
+  state.pra = { step: 0, answers: [], result: null };
+  renderPra();
+  elements.praModal.classList.remove("hidden");
+}
+
+function closePraModal() {
+  elements.praModal.classList.add("hidden");
+}
+
+function renderPra() {
+  const { step, result } = state.pra;
+  if (result) {
+    const isRequired = result.type === "required";
+    const outcomeClass = isRequired ? "pra-required" : "pra-not-required";
+    const headline = isRequired ? "PRA required" : "PRA not required";
+    const detail = isRequired
+      ? `The change may affect ${result.question.title.toLowerCase()}. Use Create PRA OneClick to get started.`
+      : result.detail;
+    const rationaleField = result.type === "not-required" && result.needsRationale
+      ? `<label class="stack pra-rationale-label">Brief rationale<textarea id="pra-rationale" rows="4" maxlength="1000" placeholder="Explain why no relevant quality attribute is expected to be affected."></textarea></label>`
+      : "";
+    const primaryAction = isRequired
+      ? '<button type="button" id="create-pra-button" class="primary-button">Create PRA OneClick</button>'
+      : result.needsRationale
+        ? '<button type="button" id="record-pra-rationale-button" class="primary-button">Record rationale</button>'
+        : "";
+
+    elements.praContent.innerHTML = `
+      <section class="pra-outcome ${outcomeClass}">
+        <span class="pra-outcome-label">Assessment complete</span>
+        <h4>${headline}</h4>
+        <p>${escapeHtml(detail)}</p>
+      </section>
+      ${rationaleField}
+      <div class="pra-actions">
+        ${primaryAction}
+        <button type="button" id="restart-pra-button" class="secondary-button">Start again</button>
+      </div>
+    `;
+    return;
+  }
+
+  const question = praQuestions[step];
+  elements.praContent.innerHTML = `
+    <div class="pra-progress" aria-label="Question ${step + 1} of ${praQuestions.length}">
+      <span>${question.label}</span>
+      <span>Question ${step + 1} of ${praQuestions.length}</span>
+    </div>
+    <h4>${escapeHtml(question.title)}</h4>
+    <p class="pra-question">${escapeHtml(question.prompt)}</p>
+    <div class="pra-actions">
+      <button type="button" id="pra-yes-button" class="primary-button">Yes</button>
+      <button type="button" id="pra-no-button" class="secondary-button">No</button>
+      ${step ? '<button type="button" id="pra-back-button" class="ghost-button">Back</button>' : ""}
+    </div>
+  `;
+}
+
+function answerPra(answer) {
+  const question = praQuestions[state.pra.step];
+  state.pra.answers[state.pra.step] = { question, answer };
+
+  if (state.pra.step === 0 && answer === "no") {
+    state.pra.result = {
+      type: "not-required",
+      detail: "Out of scope. PRA not applicable because this is not a change to an application, system or monitored component.",
+      needsRationale: false,
+    };
+  } else if (state.pra.step === 1 && answer === "no") {
+    state.pra.result = {
+      type: "not-required",
+      detail: "Out of scope. PRA not applicable because this is not a code-based change.",
+      needsRationale: false,
+    };
+  } else if (state.pra.step >= 2 && answer === "yes") {
+    state.pra.result = { type: "required", question };
+  } else if (state.pra.step === praQuestions.length - 1) {
+    state.pra.result = {
+      type: "not-required",
+      detail: "No impact is expected on the relevant Quality Attributes. Record a brief rationale.",
+      needsRationale: true,
+    };
+  } else {
+    state.pra.step += 1;
+  }
+  renderPra();
+}
+
+function downloadPraRecord(status, rationale = "") {
+  const record = {
+    status,
+    sessionCode: state.session.sessionCode,
+    assessedAt: new Date().toISOString(),
+    assessedBy: state.currentName || "Unknown",
+    answers: state.pra.answers.map(({ question, answer }) => ({
+      question: `${question.label} - ${question.title}`,
+      answer,
+    })),
+    rationale,
+  };
+  const blob = new Blob([JSON.stringify(record, null, 2)], { type: "application/json" });
+  const link = document.createElement("a");
+  link.href = URL.createObjectURL(blob);
+  link.download = `pra-${state.session.sessionCode || "assessment"}-${Date.now()}.json`;
+  link.click();
+  URL.revokeObjectURL(link.href);
 }
 
 function showSetupChoice() {
@@ -376,6 +558,7 @@ function renderSession() {
   }
 
   elements.hostControls.classList.toggle("hidden", state.mode !== "host");
+  elements.praButton.classList.toggle("hidden", state.mode !== "host");
   elements.settingsButton.classList.toggle("hidden", state.mode !== "host");
   if (state.mode !== "host") {
     closeSettingsModal();
@@ -576,6 +759,44 @@ function wireEvents() {
     openSettingsModal();
   });
 
+  elements.praButton.addEventListener("click", () => {
+    openPraModal();
+  });
+
+  elements.closePraButton.addEventListener("click", () => {
+    closePraModal();
+  });
+
+  elements.praOverlay.addEventListener("click", () => {
+    closePraModal();
+  });
+
+  elements.praContent.addEventListener("click", (event) => {
+    if (event.target.id === "pra-yes-button") {
+      answerPra("yes");
+    } else if (event.target.id === "pra-no-button") {
+      answerPra("no");
+    } else if (event.target.id === "pra-back-button") {
+      state.pra.step -= 1;
+      state.pra.answers.pop();
+      renderPra();
+    } else if (event.target.id === "restart-pra-button") {
+      state.pra = { step: 0, answers: [], result: null };
+      renderPra();
+    } else if (event.target.id === "create-pra-button") {
+      downloadPraRecord("PRA REQUIRED");
+      closePraModal();
+    } else if (event.target.id === "record-pra-rationale-button") {
+      const rationale = document.getElementById("pra-rationale").value.trim();
+      if (!rationale) {
+        window.alert("Please provide a brief rationale.");
+        return;
+      }
+      downloadPraRecord("PRA NOT REQUIRED", rationale);
+      closePraModal();
+    }
+  });
+
   elements.closeSettingsButton.addEventListener("click", () => {
     closeSettingsModal();
   });
@@ -587,6 +808,7 @@ function wireEvents() {
   document.addEventListener("keydown", (event) => {
     if (event.key === "Escape") {
       closeSettingsModal();
+      closePraModal();
     }
   });
 

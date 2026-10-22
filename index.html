@@ -63,6 +63,7 @@
         </div>
 
         <div id="host-controls" class="host-controls hidden">
+          <button type="button" id="pra-button" class="primary-button">PRA assessment</button>
           <button type="button" id="settings-button" class="ghost-button">⚙</button>
           <button type="button" id="reveal-button" class="secondary-button">Reveal votes</button>
           <button type="button" id="reset-button" class="ghost-button">Reset round</button>
@@ -103,6 +104,20 @@
               </span>
               <input id="countdown-toggle" type="checkbox" class="switch-input" />
             </label>
+          </section>
+        </div>
+
+        <div id="pra-modal" class="modal hidden" role="dialog" aria-modal="true" aria-labelledby="pra-modal-title">
+          <div id="pra-overlay" class="modal-overlay"></div>
+          <section class="pra-assessment modal-content">
+            <div class="modal-header">
+              <div>
+                <p class="eyebrow">PRA applicability assessment</p>
+                <h3 id="pra-modal-title">Is a PRA needed?</h3>
+              </div>
+              <button type="button" id="close-pra-button" class="ghost-button" aria-label="Close PRA assessment">✕</button>
+            </div>
+            <div id="pra-content"></div>
           </section>
         </div>
 
